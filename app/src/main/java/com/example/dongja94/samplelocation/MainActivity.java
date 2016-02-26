@@ -1,6 +1,7 @@
 package com.example.dongja94.samplelocation;
 
 import android.Manifest;
+import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -10,6 +11,7 @@ import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
 import android.location.LocationProvider;
+import android.net.Uri;
 import android.os.Bundle;
 import android.provider.Settings;
 import android.support.design.widget.FloatingActionButton;
@@ -21,6 +23,7 @@ import android.text.TextUtils;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
@@ -64,6 +67,20 @@ public class MainActivity extends AppCompatActivity {
         mAdapter = new ArrayAdapter<Address>(this, android.R.layout.simple_list_item_1);
         listView.setAdapter(mAdapter);
 
+        listView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override
+            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                Address address = (Address) listView.getItemAtPosition(position);
+                Intent service = new Intent(MainActivity.this, MyService.class);
+                service.setData(Uri.parse("myscheme://" + getPackageName() + "/" + id));
+                service.putExtra("address", address);
+                PendingIntent pi = PendingIntent.getService(MainActivity.this, 0, service, PendingIntent.FLAG_UPDATE_CURRENT);
+                if (ActivityCompat.checkSelfPermission(MainActivity.this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(MainActivity.this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                    return;
+                }
+                mLM.addProximityAlert(address.getLatitude(), address.getLongitude(), 100, -1, pi);
+            }
+        });
         keywordView = (EditText) findViewById(R.id.edit_keyword);
         Button btn = (Button) findViewById(R.id.btn_search);
         btn.setOnClickListener(new View.OnClickListener() {
@@ -181,7 +198,10 @@ public class MainActivity extends AppCompatActivity {
 
     private static final int RC_LOCATION_PERMISSION_REQUEST = 100;
 
+    private boolean isRequesting = false;
     private void requestLocationPermission() {
+        if (isRequesting) return;
+        isRequesting = true;
         if (!ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.ACCESS_FINE_LOCATION) &&
                 !ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.ACCESS_COARSE_LOCATION)) {
             ActivityCompat.requestPermissions(this, new String[] {Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION},RC_LOCATION_PERMISSION_REQUEST);
@@ -203,6 +223,7 @@ public class MainActivity extends AppCompatActivity {
             super.onRequestPermissionsResult(requestCode, permissions, grantResults);
             return;
         }
+        isRequesting = false;
         if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
             registerLocation();
         }
